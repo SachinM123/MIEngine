@@ -1287,7 +1287,7 @@ namespace Microsoft.MIDebugEngine.Natvis
                         // expression (this covers both the expression and any trailing format specifier)
                         if (scopedNames != null)
                         {
-                            rawExpr = Regex.Replace(rawExpr, "\\$T\\d+", (Match mt) =>
+                            rawExpr = Regex.Replace(rawExpr, @"\$T\d+", (Match mt) =>
                             {
                                 if (scopedNames.TryGetValue(mt.Value, out string replacement))
                                     return replacement;
@@ -1295,7 +1295,6 @@ namespace Microsoft.MIDebugEngine.Natvis
                             });
                         }
                         bool hasNa = HasNaModifier(rawExpr);
-                        string spec = ExtractFormatSpecifier(rawExpr);
                         string exprValue = GetExpressionValue(rawExpr, variable, scopedNames, intrinsics);
                         if (hasNa && !string.IsNullOrEmpty(exprValue))
                         {
@@ -1506,10 +1505,15 @@ namespace Microsoft.MIDebugEngine.Natvis
         /// <see cref="VariableInformation.ProcessFormatSpecifiers"/>: modifiers "nvo", "na",
         /// "nr", "nd" are stripped before returning.  Returns null when no specifier is present.
         /// </summary>
-        internal static string ExtractFormatSpecifier(string expression)
+        internal static string ExtractFormatSpecifier(string expression, out bool hasNa)
         {
+            hasNa = false;
             int commaPos = FindLastTopLevelComma(expression);
             if (commaPos < 0) return null;
+
+            string tail = expression.Substring(commaPos + 1).Trim();
+            hasNa = tail.IndexOf("na", StringComparison.Ordinal) >= 0;
+
             return expression.Substring(commaPos + 1).Trim()
                 .Replace("nvo", "").Replace("na", "").Replace("nr", "").Replace("nd", "");
         }
@@ -1550,8 +1554,6 @@ namespace Microsoft.MIDebugEngine.Natvis
         /// GDB and LLDB prefix the string with the pointer address, e.g.
         ///   <c>0x00007fff5fbff6c0 "Hello"</c>
         /// This method strips the leading address prefix that GDB/LLDB emits ("0x... ").
-        /// It does NOT remove surrounding quotes; callers should decide whether quotes
-        /// should be removed based on the caller's context.
         /// </summary>
         internal static string CleanAsciiStringValue(string value)
         {

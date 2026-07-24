@@ -93,6 +93,18 @@ namespace Microsoft.MIDebugEngine
 
         static readonly Lazy<Regex> s_addressPattern = new Lazy<Regex>(() => new Regex(@"^(0x[0-9a-fA-F]+)\b"));
 
+        static readonly Regex s_naPattern = new Regex(@"^0x[0-9a-fA-F]+\s+(.)");
+
+        private static string StripLeadingAddress(string value, bool formatNa)
+        {
+            if(!formatNa || string.IsNullOrEmpty(value))
+            {
+                return value;
+            }
+
+            return s_naPattern.Replace(value, "$1");
+        }
+
         public string Address()
         {
             // ask GDB to evaluate "&expression"
@@ -239,7 +251,7 @@ namespace Microsoft.MIDebugEngine
             : this(ctx, engine, thread)
         {
             // strip off formatting string
-            _strippedName = ProcessFormatSpecifiers(expr, out _format);
+            _strippedName = ProcessFormatSpecifiers(expr, out _format, out _formatHasNa);
             Name = displayName;
             IsParameter = isParameter;
             _parent = null;
@@ -251,7 +263,7 @@ namespace Microsoft.MIDebugEngine
             : this(parent.ThreadContext, engine, parent.Client)
         {
             // strip off formatting string
-            _strippedName = ProcessFormatSpecifiers(expr, out _format);
+            _strippedName = ProcessFormatSpecifiers(expr, out _format, out _formatHasNa);
             Name = displayName ?? expr;
             _parent = parent;
             VariableNodeType = NodeType.Synthetic;
@@ -262,7 +274,7 @@ namespace Microsoft.MIDebugEngine
             : this(parent._ctx, parent._engine, parent.Client)
         {
             // strip off formatting string
-            _strippedName = ProcessFormatSpecifiers(expr, out _format);
+            _strippedName = ProcessFormatSpecifiers(expr, out _format, out _formatHasNa);
             Name = expr;
             VariableNodeType = NodeType.Root;
         }
@@ -273,17 +285,10 @@ namespace Microsoft.MIDebugEngine
         {
             TypeName = results.TryFindString("type");
             Value = results.TryFindString("value");
-            // Diagnostic: log raw tuple child value before any cleanup
-            _debuggedProcess.Logger?.WriteLine(LogLevel.Verbose, FormattableString.Invariant($"TupleCtor: name={Name}, exp={results.TryFindString("exp")}, type={TypeName}, format={_format}, formatHasNa={_formatHasNa}, rawValue={results.TryFindString("value")}"));
-            // Only strip the leading MI address prefix ("0x... \"\"") when the natvis
-            // format included the 'na' modifier. 
-            if (_formatHasNa && !string.IsNullOrEmpty(Value) && Regex.IsMatch(Value, "^0x[0-9a-fA-F]+\\s+"))
-            {
-                // Recognize typical GDB prefix: 0x<hex> <string>
-                string before = Value;
-                Value = Regex.Replace(Value, "^0x[0-9a-fA-F]+\\s+", "");
-                _debuggedProcess.Logger?.WriteLine(LogLevel.Verbose, FormattableString.Invariant($"TupleCtor: stripped address prefix: before={before}, after={Value}"));
-            }
+            // Only strip the leading MI address prefix ("0x... ") when the natvis format included the 'na' modifier.
+            Value = StripLeadingAddress(Value, _formatHasNa);
+
+
             Name = name ?? results.FindString("exp");
             if (results.Contains("dynamic"))
             {
@@ -418,8 +423,9 @@ namespace Microsoft.MIDebugEngine
 
         private static Regex s_isFunction = new Regex(@".+\(.*\).*");
 
-        private string ProcessFormatSpecifiers(string exp, out string formatSpecifier)
+        private string ProcessFormatSpecifiers(string exp, out string formatSpecifier, out bool formatNa)
         {
+            formatNa = false;
             formatSpecifier = null; // will be used with -var-set-format
 
             if (EngineUtils.IsConsoleExecCmd(exp, out string _, out string _))
@@ -436,6 +442,7 @@ namespace Microsoft.MIDebugEngine
             // Detect whether the natvis 'na' modifier is present in the original format specifier.
             // We must detect this before we strip modifiers below.
             _formatHasNa = expFS.IndexOf("na", StringComparison.Ordinal) >= 0;
+            formatNa = _formatHasNa;
 
             // Strip off modifiers that may be included together with another format specifier, e.g. 'nvoXb' is a valid format specifier, but we only care about the 'Xb' part
             // This is not quite the right fix -- really the below switch statement should be a series of if statements. But since none of the supported format specifiers
@@ -719,10 +726,7 @@ namespace Microsoft.MIDebugEngine
                         }
                         Value = results.TryFindString("value");
                         // If natvis requested 'na', strip MI's leading address prefix
-                        if (_formatHasNa && !string.IsNullOrEmpty(Value) && Regex.IsMatch(Value, "^0x[0-9a-fA-F]+\\s+"))
-                        {
-                            Value = Regex.Replace(Value, "^0x[0-9a-fA-F]+\\s+", "");
-                        }
+                        Value = StripLeadingAddress(Value, _formatHasNa);
                         if ((string.IsNullOrEmpty(Value) || _format != null) && !string.IsNullOrEmpty(_internalName))
                         {
                             if (_format != null)
@@ -737,10 +741,7 @@ namespace Microsoft.MIDebugEngine
                                 {
                                     Value = results.FindString("value");
                                     // If natvis requested 'na', strip MI's leading address prefix
-                                    if (_formatHasNa && !string.IsNullOrEmpty(Value) && Regex.IsMatch(Value, "^0x[0-9a-fA-F]+\\s+"))
-                                    {
-                                        Value = Regex.Replace(Value, "^0x[0-9a-fA-F]+\\s+", "");
-                                    }
+                                    Value = StripLeadingAddress(Value, _formatHasNa);
                                 }
                                 else if (results.ResultClass == ResultClass.error)
                                 {
