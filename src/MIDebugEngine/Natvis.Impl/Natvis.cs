@@ -1296,9 +1296,9 @@ namespace Microsoft.MIDebugEngine.Natvis
                         }
                         bool hasNa = HasNaModifier(rawExpr);
                         string exprValue = GetExpressionValue(rawExpr, variable, scopedNames, intrinsics);
-                        if (hasNa && !string.IsNullOrEmpty(exprValue))
+                        if (hasNa)
                         {
-                            exprValue = s_addressPrefix.Replace(exprValue, "");
+                            exprValue = VariableInformation.StripLeadingAddress(exprValue);
                         }
                         value.Append(exprValue);
                         i += m.Length - 1;

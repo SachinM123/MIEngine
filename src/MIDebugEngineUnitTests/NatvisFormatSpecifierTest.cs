@@ -15,33 +15,34 @@ namespace MIDebugEngineUnitTests
         [Fact]
         public void ExtractFormatSpecifier_Sub_Extracted()
         {
-            Assert.Equal("sub", Natvis.ExtractFormatSpecifier("schemeStr(),sub"));
+            Assert.Equal("sub", Natvis.ExtractFormatSpecifier("schemeStr(),sub", out _));
         }
 
         [Fact]
         public void ExtractFormatSpecifier_Decimal_Extracted()
         {
-            Assert.Equal("d", Natvis.ExtractFormatSpecifier("year(),d"));
+            Assert.Equal("d", Natvis.ExtractFormatSpecifier("year(),d", out _));
         }
 
         [Fact]
         public void ExtractFormatSpecifier_NoSpecifier_ReturnsNull()
         {
-            Assert.Null(Natvis.ExtractFormatSpecifier("cspec == 1"));
+            Assert.Null(Natvis.ExtractFormatSpecifier("cspec == 1", out _));
         }
 
         [Fact]
         public void ExtractFormatSpecifier_NvoModifierStripped()
         {
             // "nvoXb": strip "nvo" modifier, result is "Xb"
-            Assert.Equal("Xb", Natvis.ExtractFormatSpecifier("data1,nvoXb"));
+            Assert.Equal("Xb", Natvis.ExtractFormatSpecifier("data1,nvoXb", out _));
         }
 
         [Fact]
         public void ExtractFormatSpecifier_NaModifierStripped()
         {
             // "view(RecZone)na": strip "na", result is "view(RecZone)"
-            Assert.Equal("view(RecZone)", Natvis.ExtractFormatSpecifier("this,view(RecZone)na"));
+            Assert.Equal("view(RecZone)", Natvis.ExtractFormatSpecifier("this,view(RecZone)na", out bool hasNa));
+            Assert.True(hasNa);
         }
 
         // -- CleanUtf16StringValue --------------------------------------------

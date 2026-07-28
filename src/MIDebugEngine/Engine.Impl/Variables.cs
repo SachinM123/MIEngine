@@ -95,9 +95,9 @@ namespace Microsoft.MIDebugEngine
 
         static readonly Regex s_naPattern = new Regex(@"^0x[0-9a-fA-F]+\s+(.)");
 
-        private static string StripLeadingAddress(string value, bool formatNa)
+        internal static string StripLeadingAddress(string value)
         {
-            if(!formatNa || string.IsNullOrEmpty(value))
+            if (string.IsNullOrEmpty(value))
             {
                 return value;
             }
@@ -285,9 +285,11 @@ namespace Microsoft.MIDebugEngine
         {
             TypeName = results.TryFindString("type");
             Value = results.TryFindString("value");
-            // Only strip the leading MI address prefix ("0x... ") when the natvis format included the 'na' modifier.
-            Value = StripLeadingAddress(Value, _formatHasNa);
-
+            _formatHasNa = parent._formatHasNa;
+            if (_formatHasNa)
+            {
+                Value = StripLeadingAddress(Value);
+            }
 
             Name = name ?? results.FindString("exp");
             if (results.Contains("dynamic"))
@@ -349,8 +351,6 @@ namespace Microsoft.MIDebugEngine
             _internalName = results.FindString("name");
             IsChild = true;
             _format = parent._format; // inherit formatting
-            // inherit whether the parent's format included the 'na' modifier
-            _formatHasNa = parent._formatHasNa;
             _parent = parent.VariableNodeType == NodeType.AccessQualifier ? parent._parent : parent;
             this.PropertyInfoFlags = parent.PropertyInfoFlags;
         }
@@ -725,8 +725,10 @@ namespace Microsoft.MIDebugEngine
                             _attribsFetched = true;
                         }
                         Value = results.TryFindString("value");
-                        // If natvis requested 'na', strip MI's leading address prefix
-                        Value = StripLeadingAddress(Value, _formatHasNa);
+                        if (_formatHasNa)
+                        {
+                            Value = StripLeadingAddress(Value);
+                        }
                         if ((string.IsNullOrEmpty(Value) || _format != null) && !string.IsNullOrEmpty(_internalName))
                         {
                             if (_format != null)
@@ -740,8 +742,10 @@ namespace Microsoft.MIDebugEngine
                                 if (results.ResultClass == ResultClass.done)
                                 {
                                     Value = results.FindString("value");
-                                    // If natvis requested 'na', strip MI's leading address prefix
-                                    Value = StripLeadingAddress(Value, _formatHasNa);
+                                    if (_formatHasNa)
+                                    {
+                                        Value = StripLeadingAddress(Value);
+                                    }
                                 }
                                 else if (results.ResultClass == ResultClass.error)
                                 {
