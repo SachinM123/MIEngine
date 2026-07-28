@@ -1544,7 +1544,14 @@ namespace Microsoft.MIDebugEngine.Natvis
         {
             if (string.IsNullOrEmpty(value)) return value;
             // Strip leading "0x<hex> " address prefix emitted by GDB/LLDB.
-            value = s_addressPrefix.Replace(value, "");
+            value = VariableInformation.StripLeadingAddress(value);
+            // Strip surrounding u"..." or U"..." quotes.
+            if (value.Length >= 3 && (value.StartsWith("u\"", StringComparison.Ordinal) || value.StartsWith("U\"", StringComparison.Ordinal)))
+            {
+                value = value.EndsWith("\"", StringComparison.Ordinal)
+                    ? value.Substring(2, value.Length - 3)
+                    : value.Substring(2);
+            }
             return value;
         }
 
@@ -1559,7 +1566,7 @@ namespace Microsoft.MIDebugEngine.Natvis
         {
             if (string.IsNullOrEmpty(value)) return value;
             // Strip leading "0x<hex> " address prefix emitted by GDB/LLDB.
-            value = s_addressPrefix.Replace(value, "");
+            value = VariableInformation.StripLeadingAddress(value);
             // Strip surrounding "..." quotes.
             if (value.Length >= 2 && value.StartsWith("\"", StringComparison.Ordinal))
             {
