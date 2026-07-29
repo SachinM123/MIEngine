@@ -1526,10 +1526,8 @@ namespace Microsoft.MIDebugEngine.Natvis
         /// </summary>
         private static bool HasNaModifier(string expression)
         {
-            int commaPos = FindLastTopLevelComma(expression);
-            if (commaPos < 0) return false;
-            string tail = expression.Substring(commaPos + 1);
-            return tail.IndexOf("na", StringComparison.Ordinal) >= 0;
+            ExtractFormatSpecifier(expression, out bool hasNa);
+            return hasNa;
         }
 
         /// <summary>

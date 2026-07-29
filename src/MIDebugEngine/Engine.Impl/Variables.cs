@@ -441,8 +441,7 @@ namespace Microsoft.MIDebugEngine
             string expFS = exp.Substring(lastComma + 1).Trim();
             // Detect whether the natvis 'na' modifier is present in the original format specifier.
             // We must detect this before we strip modifiers below.
-            _formatHasNa = expFS.IndexOf("na", StringComparison.Ordinal) >= 0;
-            formatNa = _formatHasNa;
+            formatNa = expFS.IndexOf("na", StringComparison.Ordinal) >= 0;
 
             // Strip off modifiers that may be included together with another format specifier, e.g. 'nvoXb' is a valid format specifier, but we only care about the 'Xb' part
             // This is not quite the right fix -- really the below switch statement should be a series of if statements. But since none of the supported format specifiers
