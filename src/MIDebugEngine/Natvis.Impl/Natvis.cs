@@ -1294,7 +1294,7 @@ namespace Microsoft.MIDebugEngine.Natvis
                                 return mt.Value;
                             });
                         }
-                        bool hasNa = HasNaModifier(rawExpr);
+                        ExtractFormatSpecifier(rawExpr, out bool hasNa);
                         string exprValue = GetExpressionValue(rawExpr, variable, scopedNames, intrinsics);
                         if (hasNa)
                         {
@@ -1524,12 +1524,6 @@ namespace Microsoft.MIDebugEngine.Natvis
         /// raw specifier text and does not normalize/remove modifiers so callers can detect
         /// whether the original expression asked for the "na" behavior.
         /// </summary>
-        private static bool HasNaModifier(string expression)
-        {
-            ExtractFormatSpecifier(expression, out bool hasNa);
-            return hasNa;
-        }
-
         /// <summary>
         /// Cleans up the raw value that GDB/LLDB returns for a <c>const char16_t*</c>
         /// expression (i.e. one evaluated with the <c>,sub</c> / <c>,su</c> format specifier).
