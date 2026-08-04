@@ -1283,19 +1283,12 @@ namespace Microsoft.MIDebugEngine.Natvis
                     if (m.Success)
                     {
                         string rawExpr = format.Substring(i + 1, m.Length - 2);
-                        // Substitute template parameter macros ($T1, $T2, ...) inside the whole brace
-                        // expression (this covers both the expression and any trailing format specifier)
-                        if (scopedNames != null)
-                        {
-                            rawExpr = Regex.Replace(rawExpr, @"\$T\d+", (Match mt) =>
-                            {
-                                if (scopedNames.TryGetValue(mt.Value, out string replacement))
-                                    return replacement;
-                                return mt.Value;
-                            });
-                        }
-                        ExtractFormatSpecifier(rawExpr, out bool hasNa);
+                        string spec = ExtractFormatSpecifier(rawExpr, out bool hasNa);
                         string exprValue = GetExpressionValue(rawExpr, variable, scopedNames, intrinsics);
+                        if (spec == "sub")
+                            exprValue = CleanUtf16StringValue(exprValue);
+                        else if (spec == "sb")
+                            exprValue = CleanAsciiStringValue(exprValue);
                         if (hasNa)
                         {
                             exprValue = VariableInformation.StripLeadingAddress(exprValue);
