@@ -1283,16 +1283,12 @@ namespace Microsoft.MIDebugEngine.Natvis
                     if (m.Success)
                     {
                         string rawExpr = format.Substring(i + 1, m.Length - 2);
-                        string spec = ExtractFormatSpecifier(rawExpr, out bool hasNa);
+                        string spec = ExtractFormatSpecifier(rawExpr);
                         string exprValue = GetExpressionValue(rawExpr, variable, scopedNames, intrinsics);
-                        if (spec == "sub")
+                        if (spec == "sub" || spec == "su")
                             exprValue = CleanUtf16StringValue(exprValue);
                         else if (spec == "sb")
                             exprValue = CleanAsciiStringValue(exprValue);
-                        if (hasNa)
-                        {
-                            exprValue = VariableInformation.StripLeadingAddress(exprValue);
-                        }
                         value.Append(exprValue);
                         i += m.Length - 1;
                     }
@@ -1498,6 +1494,21 @@ namespace Microsoft.MIDebugEngine.Natvis
         /// <see cref="VariableInformation.ProcessFormatSpecifiers"/>: modifiers "nvo", "na",
         /// "nr", "nd" are stripped before returning.  Returns null when no specifier is present.
         /// </summary>
+        internal static string ExtractFormatSpecifier(string expression)
+        {
+            int commaPos = FindLastTopLevelComma(expression);
+            if (commaPos < 0) return null;
+            return expression.Substring(commaPos + 1).Trim()
+                .Replace("nvo", "").Replace("na", "").Replace("nr", "").Replace("nd", "");
+        }
+
+        /// <summary>
+        /// Returns the format specifier from a NatVis expression (the part after the last
+        /// top-level comma), normalized the same way as
+        /// <see cref="VariableInformation.ProcessFormatSpecifiers"/>: modifiers "nvo", "na",
+        /// "nr", "nd" are stripped before returning.  Returns null when no specifier is present.
+        /// also returns whether modifier 'na' was there via the out parameter
+        /// </summary>
         internal static string ExtractFormatSpecifier(string expression, out bool hasNa)
         {
             hasNa = false;
@@ -1507,31 +1518,24 @@ namespace Microsoft.MIDebugEngine.Natvis
             string tail = expression.Substring(commaPos + 1).Trim();
             hasNa = tail.IndexOf("na", StringComparison.Ordinal) >= 0;
 
-            return expression.Substring(commaPos + 1).Trim()
+            return tail
                 .Replace("nvo", "").Replace("na", "").Replace("nr", "").Replace("nd", "");
         }
 
-        /// <summary>
-        /// Returns true if the NatVis expression's trailing format specifier (the part after the
-        /// last top-level comma) contains the "na" modifier. This intentionally inspects the
-        /// raw specifier text and does not normalize/remove modifiers so callers can detect
-        /// whether the original expression asked for the "na" behavior.
-        /// </summary>
         /// <summary>
         /// Cleans up the raw value that GDB/LLDB returns for a <c>const char16_t*</c>
         /// expression (i.e. one evaluated with the <c>,sub</c> / <c>,su</c> format specifier).
         /// GDB and LLDB both prefix the string with the pointer address, e.g.
         ///   <c>0x00007fff5fbff6c0 u"Hello"</c>
-        /// This method strips the leading address prefix that GDB/LLDB emits ("0x... ").
-        /// It does NOT remove surrounding quotes or the leading character-width prefix (u/U).
         /// </summary>
         internal static string CleanUtf16StringValue(string value)
         {
             if (string.IsNullOrEmpty(value)) return value;
             // Strip leading "0x<hex> " address prefix emitted by GDB/LLDB.
-            value = VariableInformation.StripLeadingAddress(value);
+            value = s_addressPrefix.Replace(value, "");
             // Strip surrounding u"..." or U"..." quotes.
-            if (value.Length >= 3 && (value.StartsWith("u\"", StringComparison.Ordinal) || value.StartsWith("U\"", StringComparison.Ordinal)))
+            if (value.Length >= 3 &&
+                (value.StartsWith("u\"", StringComparison.Ordinal) || value.StartsWith("U\"", StringComparison.Ordinal)))
             {
                 value = value.EndsWith("\"", StringComparison.Ordinal)
                     ? value.Substring(2, value.Length - 3)
@@ -1545,13 +1549,12 @@ namespace Microsoft.MIDebugEngine.Natvis
         /// (i.e. one evaluated with the <c>,sb</c> format specifier).
         /// GDB and LLDB prefix the string with the pointer address, e.g.
         ///   <c>0x00007fff5fbff6c0 "Hello"</c>
-        /// This method strips the leading address prefix that GDB/LLDB emits ("0x... ").
         /// </summary>
         internal static string CleanAsciiStringValue(string value)
         {
             if (string.IsNullOrEmpty(value)) return value;
             // Strip leading "0x<hex> " address prefix emitted by GDB/LLDB.
-            value = VariableInformation.StripLeadingAddress(value);
+            value = s_addressPrefix.Replace(value, "");
             // Strip surrounding "..." quotes.
             if (value.Length >= 2 && value.StartsWith("\"", StringComparison.Ordinal))
             {
